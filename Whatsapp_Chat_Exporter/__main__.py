@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
-import io
-import os
-import sqlite3
-import shutil
-import json
-import string
 import glob
+import io
+import json
+import os
+import shutil
+import sqlite3
+import string
+
 try:
     import vobject
 except ModuleNotFoundError:
@@ -14,15 +15,28 @@ except ModuleNotFoundError:
 else:
     from Whatsapp_Chat_Exporter.vcards_contacts import ContactsFromVCards
     vcards_deps_installed = True
-from Whatsapp_Chat_Exporter import exported_handler, android_handler
-from Whatsapp_Chat_Exporter import ios_handler, ios_media_handler
-from Whatsapp_Chat_Exporter.data_model import ChatStore
-from Whatsapp_Chat_Exporter.utility import APPLE_TIME, Crypt, DbType, readable_to_bytes, check_update
-from Whatsapp_Chat_Exporter.utility import import_from_json, sanitize_filename, bytes_to_readable
-from argparse import ArgumentParser, SUPPRESS
+import importlib.metadata
+from argparse import SUPPRESS, ArgumentParser
 from datetime import datetime
 from sys import exit
-import importlib.metadata
+
+from Whatsapp_Chat_Exporter import (
+    android_handler,
+    exported_handler,
+    ios_handler,
+    ios_media_handler,
+)
+from Whatsapp_Chat_Exporter.data_model import ChatStore
+from Whatsapp_Chat_Exporter.utility import (
+    APPLE_TIME,
+    Crypt,
+    DbType,
+    bytes_to_readable,
+    check_update,
+    import_from_json,
+    readable_to_bytes,
+    sanitize_filename,
+)
 
 
 def main():
@@ -291,6 +305,13 @@ def main():
         help="Use with --enrich-from-vcards. When numbers in the vcf file does not have a country code, this will be used. 1 is for US, 66 for Thailand etc. Most likely use the number of your own country"
     )
     parser.add_argument(
+        "--no-indexes",
+        dest="no_indexes",
+        default=False,
+        action='store_true',
+        help="Use with --enrich-from-vcards. Do not add indexes to the names with multiple numbers"
+    )
+    parser.add_argument(
         "--txt",
         dest="text_format",
         nargs='?',
@@ -408,7 +429,7 @@ def main():
                 "https://github.com/KnugiHK/Whatsapp-Chat-Exporter/blob/main/README.md#usage"
             )
         contact_store = ContactsFromVCards()
-        contact_store.load_vcf_file(args.enrich_from_vcards, args.default_contry_code)
+        contact_store.load_vcf_file(args.enrich_from_vcards, args.default_contry_code, not args.no_indexes)
 
     if args.android:
         contacts = android_handler.contacts
@@ -480,7 +501,9 @@ def main():
         vcard = ios_handler.vcard
         create_html = android_handler.create_html
         if args.business:
-            from Whatsapp_Chat_Exporter.utility import WhatsAppBusinessIdentifier as identifiers
+            from Whatsapp_Chat_Exporter.utility import (
+                WhatsAppBusinessIdentifier as identifiers,
+            )
         else:
             from Whatsapp_Chat_Exporter.utility import WhatsAppIdentifier as identifiers
         if args.media is None:
@@ -529,7 +552,8 @@ def main():
                     args.size,
                     args.no_avatar,
                     args.whatsapp_theme,
-                    args.headline
+                    args.headline,
+                    contacts=contact_store.as_dict() if args.enrich_from_vcards else None,
                 )
         else:
             print(
