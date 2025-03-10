@@ -1,5 +1,6 @@
-import vobject
 from typing import List, TypedDict
+
+import vobject
 
 
 class ExportedContactNumbers(TypedDict):
@@ -14,8 +15,8 @@ class ContactsFromVCards:
     def is_empty(self):
         return self.contact_mapping == []
 
-    def load_vcf_file(self, vcf_file_path: str, default_country_code: str):
-        self.contact_mapping = read_vcards_file(vcf_file_path, default_country_code)
+    def load_vcf_file(self, vcf_file_path: str, default_country_code: str, add_indexes: bool = True):
+        self.contact_mapping = read_vcards_file(vcf_file_path, default_country_code, add_indexes)
 
     def enrich_from_vcards(self, chats):
         for number, name in self.contact_mapping:
@@ -27,8 +28,15 @@ class ContactsFromVCards:
                 if not hasattr(chat, 'name') or (hasattr(chat, 'name') and chat.name is None):
                     setattr(chat, 'name', name)
 
+    def as_dict(self) -> dict:
+        """
+        Convert the contact mapping to a dictionary.
+        """
 
-def read_vcards_file(vcf_file_path, default_country_code: str):
+        return dict(self.contact_mapping)                    
+
+
+def read_vcards_file(vcf_file_path, default_country_code: str, add_indexes: bool = True):
     contacts = []
     with open(vcf_file_path, mode="r", encoding="utf-8") as f:
         reader = vobject.readComponents(f)
@@ -47,19 +55,19 @@ def read_vcards_file(vcf_file_path, default_country_code: str):
             }
             contacts.append(contact)
 
-    return map_number_to_name(contacts, default_country_code)
+    return map_number_to_name(contacts, default_country_code, add_indexes)
 
 
 def filter_chats_by_prefix(chats, prefix: str):
     return {k: v for k, v in chats.items() if k.startswith(prefix)}
 
 
-def map_number_to_name(contacts, default_country_code: str):
+def map_number_to_name(contacts, default_country_code: str, add_indexes: bool = True):
     mapping = []
     for contact in contacts:
         for index, num in enumerate(contact['numbers']):
             normalized = normalize_number(num, default_country_code)
-            if len(contact['numbers']) > 1:
+            if len(contact['numbers']) > 1 and add_indexes:
                 name = f"{contact['full_name']} ({index+1})"
             else:
                 name = contact['full_name']
@@ -77,6 +85,6 @@ def normalize_number(number: str, country_code: str):
             return number[len(starting_char):]
 
     # leading zero should be removed
-    if starting_char == '0':
+    if number.startswith("0"):
         number = number[1:]
     return country_code + number  # fall back

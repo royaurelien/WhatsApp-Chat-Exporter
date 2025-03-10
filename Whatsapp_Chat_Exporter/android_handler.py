@@ -1,24 +1,44 @@
 #!/usr/bin/python3
 
-import sqlite3
-import os
-import io
 import hmac
+import io
+import os
 import shutil
-from pathlib import Path
-from mimetypes import MimeTypes
-from markupsafe import escape as htmle
-from hashlib import sha256
+import sqlite3
 from base64 import b64decode, b64encode
 from datetime import datetime
+from hashlib import sha256
+from mimetypes import MimeTypes
+from pathlib import Path
+
+from markupsafe import escape as htmle
+
 from Whatsapp_Chat_Exporter.data_model import ChatStore, Message
-from Whatsapp_Chat_Exporter.utility import CURRENT_TZ_OFFSET, MAX_SIZE, ROW_SIZE, DbType, convert_time_unit, determine_metadata, get_cond_for_empty
-from Whatsapp_Chat_Exporter.utility import rendering, Crypt, Device, get_file_name, setup_template
-from Whatsapp_Chat_Exporter.utility import brute_force_offset, CRYPT14_OFFSETS, get_status_location
-from Whatsapp_Chat_Exporter.utility import get_chat_condition, slugify, bytes_to_readable, JidType
+from Whatsapp_Chat_Exporter.utility import (
+    CRYPT14_OFFSETS,
+    CURRENT_TZ_OFFSET,
+    MAX_SIZE,
+    ROW_SIZE,
+    Crypt,
+    DbType,
+    Device,
+    JidType,
+    brute_force_offset,
+    bytes_to_readable,
+    convert_time_unit,
+    determine_metadata,
+    get_chat_condition,
+    get_cond_for_empty,
+    get_file_name,
+    get_status_location,
+    rendering,
+    setup_template,
+    slugify,
+)
 
 try:
     import zlib
+
     from Crypto.Cipher import AES
 except ModuleNotFoundError:
     support_backup = False
@@ -780,7 +800,8 @@ def create_html(
         maximum_size=None,
         no_avatar=False,
         experimental=False,
-        headline=None
+        headline=None, 
+        contacts=None,
     ):
     template = setup_template(template, no_avatar, experimental)
 
@@ -808,6 +829,10 @@ def create_html(
                     current_size += len(message.data) + ROW_SIZE
                 else:
                     current_size += ROW_SIZE + 100  # Assume media and meta HTML are 100 bytes
+
+                if message.sender is not None:
+                    message.sender = contacts.get(message.sender, message.sender)
+
                 if current_size > maximum_size:
                     output_file_name = f"{output_folder}/{safe_file_name}-{current_page}.html"
                     rendering(
@@ -846,11 +871,17 @@ def create_html(
                         )
         else:
             output_file_name = f"{output_folder}/{safe_file_name}.html"
+
+            messages = chat.get_messages()
+            for message in messages:
+                if message.sender is not None:
+                    message.sender = contacts.get(message.sender, message.sender)
+
             rendering(
                 output_file_name,
                 template,
                 name,
-                chat.get_messages(),
+                messages,
                 contact,
                 w3css,
                 chat,
