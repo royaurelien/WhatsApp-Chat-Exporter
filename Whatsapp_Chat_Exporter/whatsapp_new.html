@@ -333,7 +333,16 @@
                                     </span>
                                     <span class="flex-grow min-w-[4px]"></span>
                                     <span class="flex-shrink-0">{{ msg.time }}</span>
-                                    </div>
+                                </div>
+                                {% if msg.reactions %}
+                                <div class="reaction-container">
+                                    {% for reaction in msg.reactions %}
+                                        <span class="reaction-tooltip" title="{{ reaction[0] if reaction[0] else 'You' }} - {{ reaction[2] }}">
+                                            {{ reaction[1] }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endif %}

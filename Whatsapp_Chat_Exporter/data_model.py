@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import os
-from datetime import datetime, tzinfo, timedelta
+from datetime import datetime, timedelta, tzinfo
 from typing import Union
 
 
@@ -88,6 +88,7 @@ class Message():
         self.caption = None
         self.thumb = None # Android specific
         self.sticker = False
+        self.reactions = None
     
     def to_json(self):
         return {
@@ -105,5 +106,6 @@ class Message():
             'quoted_data' : self.quoted_data,
             'caption'     : self.caption,
             'thumb'       : self.thumb,
-            'sticker'     : self.sticker
+            'sticker'     : self.sticker,
+            'reactions'   : self.reactions
         }

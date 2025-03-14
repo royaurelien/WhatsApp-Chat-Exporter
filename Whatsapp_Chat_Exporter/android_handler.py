@@ -196,6 +196,28 @@ def contacts(db, data):
 def messages(db, data, media_folder, timezone_offset, filter_date, filter_chat, filter_empty):
     # Get message history
     c = db.cursor()
+
+    try:
+        c.execute("""SELECT 
+                    m._id AS message_id,
+                    jid.raw_string AS reaction_sender,
+                    r.reaction AS reaction,
+                    datetime(r.sender_timestamp / 1000, 'unixepoch', 'localtime') AS reaction_time
+                FROM message_add_on_reaction r
+                JOIN message_add_on a ON r.message_add_on_row_id = a._id
+                JOIN message m ON a.parent_message_row_id = m._id
+                LEFT JOIN jid ON a.sender_jid_row_id = jid._id
+                ORDER BY m.timestamp DESC;
+                """)
+        
+        reactions = {}
+        for message_id, sender, emoji, reaction_time in c.fetchall():
+            res = reactions.setdefault(message_id, [])
+            res.append((sender.split('@')[0] if sender else None, emoji, reaction_time))    
+
+    except sqlite3.OperationalError:
+        reactions = {}
+
     try:
         c.execute(f"""SELECT count()
                       FROM messages
@@ -431,6 +453,10 @@ def messages(db, data, media_folder, timezone_offset, filter_date, filter_chat, 
             message.caption = content["data"]
         else:
             message.caption = None
+
+        # Add reactions to the message
+        if content["_id"] in reactions:
+            message.reactions = reactions[content["_id"]]
 
         if content["status"] == 6:  # 6 = Metadata, otherwise assume a message
             message.meta = True
@@ -832,6 +858,15 @@ def create_html(
 
                 if message.sender is not None:
                     message.sender = contacts.get(message.sender, message.sender)
+                
+                if message.reactions and contacts:
+                    updated_reactions = []
+                    for reaction in message.reactions:
+                        sender, emoji, timestamp = reaction
+                        if sender is not None:
+                            sender = contacts.get(sender, sender)
+                        updated_reactions.append((sender, emoji, timestamp))
+                    message.reactions = updated_reactions    
 
                 if current_size > maximum_size:
                     output_file_name = f"{output_folder}/{safe_file_name}-{current_page}.html"
@@ -876,6 +911,15 @@ def create_html(
             for message in messages:
                 if message.sender is not None:
                     message.sender = contacts.get(message.sender, message.sender)
+
+            if message.reactions and contacts:
+                updated_reactions = []
+                for reaction in message.reactions:
+                    sender, emoji, timestamp = reaction
+                    if sender is not None:
+                        sender = contacts.get(sender, sender)
+                    updated_reactions.append((sender, emoji, timestamp))
+                message.reactions = updated_reactions
 
             rendering(
                 output_file_name,
